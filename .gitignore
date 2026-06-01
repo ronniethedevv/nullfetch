@@ -1,0 +1,27 @@
+node_modules/
+.env
+.env.local
+
+cache/
+artifacts/
+typechain-types/
+dist/
+
+coverage/
+coverage.json
+
+# Runtime cache the @fhevm/hardhat-plugin writes for mock-network state.
+# Regenerated on every test/compile, never useful to commit.
+fhevmTemp/
+
+# deployments.json IS committed — see README. The contract address is
+# already public on Etherscan and judges/users need it to point the web
+# app at the live deployment without re-deploying themselves. Uncomment
+# the next line if you want to gate that per-machine.
+# deployments.json
+
+# Plaintext API keys written by scripts/register-key.ts — NEVER commit.
+.key-service-*
+
+*.log
+.DS_Store

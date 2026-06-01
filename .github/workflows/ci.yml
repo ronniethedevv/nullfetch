@@ -1,0 +1,99 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel an in-flight CI run if the same branch gets another push.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    name: contracts (compile + mock-network tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      # .npmrc in the repo sets legacy-peer-deps=true so this matches local.
+      - name: install root deps
+        run: npm ci --no-audit --no-fund
+
+      - name: hardhat compile
+        run: npx hardhat compile
+
+      - name: hardhat test (mock fhEVM, no relayer / no Sepolia)
+        run: npx hardhat test
+
+      # Surfaces high+ severity advisories in the run log without
+      # gating merges on transitive deps that may not have a fix yet.
+      # Tighten to `--audit-level=moderate` once the ecosystem catches up.
+      - name: npm audit (advisory, non-blocking)
+        continue-on-error: true
+        run: npm audit --audit-level=high
+
+  api:
+    name: api (typecheck)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: api/package-lock.json
+
+      - name: install api deps
+        working-directory: api
+        run: npm ci --no-audit --no-fund
+
+      - name: typecheck
+        working-directory: api
+        run: npm run typecheck
+
+      - name: npm audit (advisory, non-blocking)
+        continue-on-error: true
+        working-directory: api
+        run: npm audit --audit-level=high
+
+  web:
+    name: web (typecheck + build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: install web deps
+        working-directory: web
+        run: npm ci --no-audit --no-fund
+
+      - name: typecheck
+        working-directory: web
+        run: npx tsc -p . --noEmit
+
+      - name: build
+        working-directory: web
+        run: npm run build
+
+      - name: npm audit (advisory, non-blocking)
+        continue-on-error: true
+        working-directory: web
+        run: npm audit --audit-level=high

