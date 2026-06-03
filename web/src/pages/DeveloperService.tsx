@@ -167,6 +167,13 @@ export function DeveloperService() {
     setBusyAction('verify');
     setVerifyState('pending');
     try {
+      // EIP-55 checksum every address that the Zama relayer SDK
+      // touches. MetaMask returns lowercase; the SDK rejects with
+      // "User address is not a valid address" / "Bad address checksum"
+      // on uncasumed input. Compute once, reuse below.
+      const checksumMarket = getAddress(marketAddr);
+      const checksumUser = getAddress(account);
+
       append('info', `[verify] hashing key (${keyInput.length} chars)`);
       const { hi, lo, digest } = digestHalves(keyInput.trim());
       append('ok', `[verify] digest = ${digest}`);
@@ -174,9 +181,7 @@ export function DeveloperService() {
       append('info', '[verify] loading Zama relayer SDK…');
       const fhevm = await getInstance(window.ethereum!);
 
-      // EIP-55 checksum both addresses — the Zama relayer SDK rejects
-      // lowercase input with "User address is not a valid address."
-      const input = fhevm.createEncryptedInput(getAddress(marketAddr), getAddress(account));
+      const input = fhevm.createEncryptedInput(checksumMarket, checksumUser);
       input.add128(hi);
       input.add128(lo);
       const enc = await input.encrypt();
@@ -213,12 +218,14 @@ export function DeveloperService() {
       }
       if (!resultHandle) throw new Error('Verified event missing in receipt');
 
-      // User-decrypt the ebool via the relayer SDK.
+      // User-decrypt the ebool via the relayer SDK. Both the contract
+      // list and the user address must be EIP-55 — see the comment at
+      // the top of this handler.
       append('info', '[verify] building EIP-712 user-decrypt permission');
       const kp = fhevm.generateKeypair();
       const start = Math.floor(Date.now() / 1000);
       const days = 7;
-      const eip712 = fhevm.createEIP712(kp.publicKey, [marketAddr], start, days);
+      const eip712 = fhevm.createEIP712(kp.publicKey, [checksumMarket], start, days);
 
       const browserProvider = new BrowserProvider(window.ethereum!);
       const signer = await browserProvider.getSigner();
@@ -235,12 +242,12 @@ export function DeveloperService() {
 
       append('info', '[verify] posting handle + permission to relayer…');
       const res = await fhevm.userDecrypt(
-        [{ handle: resultHandle, contractAddress: marketAddr }],
+        [{ handle: resultHandle, contractAddress: checksumMarket }],
         kp.privateKey,
         kp.publicKey,
         sigBytes.replace(/^0x/, ''),
-        [marketAddr],
-        account,
+        [checksumMarket],
+        checksumUser,
         start,
         days,
       );
