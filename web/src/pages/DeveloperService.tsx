@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { BrowserProvider, hexlify } from 'ethers';
+import { BrowserProvider, getAddress, hexlify } from 'ethers';
 import { CATEGORIES } from '../abi';
 import { useWallet } from '../hooks/WalletContext';
 import { useMarketplace } from '../hooks/useMarketplace';
@@ -174,7 +174,9 @@ export function DeveloperService() {
       append('info', '[verify] loading Zama relayer SDK…');
       const fhevm = await getInstance(window.ethereum!);
 
-      const input = fhevm.createEncryptedInput(marketAddr, account);
+      // EIP-55 checksum both addresses — the Zama relayer SDK rejects
+      // lowercase input with "User address is not a valid address."
+      const input = fhevm.createEncryptedInput(getAddress(marketAddr), getAddress(account));
       input.add128(hi);
       input.add128(lo);
       const enc = await input.encrypt();
@@ -272,7 +274,9 @@ export function DeveloperService() {
       append('info', '[attest] hashing + encrypting');
       const { hi, lo } = digestHalves(keyInput.trim());
       const fhevm = await getInstance(window.ethereum!);
-      const input = fhevm.createEncryptedInput(marketAddr, account);
+      // EIP-55 checksum both addresses — the Zama relayer SDK rejects
+      // lowercase input with "User address is not a valid address."
+      const input = fhevm.createEncryptedInput(getAddress(marketAddr), getAddress(account));
       input.add128(hi);
       input.add128(lo);
       const enc = await input.encrypt();
@@ -420,7 +424,9 @@ export function DeveloperService() {
       append('ok', `[rotate] new digest = ${digest}`);
 
       const fhevm = await getInstance(window.ethereum!);
-      const input = fhevm.createEncryptedInput(marketAddr, account);
+      // EIP-55 checksum both addresses — the Zama relayer SDK rejects
+      // lowercase input with "User address is not a valid address."
+      const input = fhevm.createEncryptedInput(getAddress(marketAddr), getAddress(account));
       input.add128(hi);
       input.add128(lo);
       const enc = await input.encrypt();

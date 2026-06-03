@@ -99,10 +99,17 @@ export function DeveloperRegister() {
       append('ok', `digest = ${digest}`);
 
       // 3. Encrypt via the Zama relayer SDK.
+      // MetaMask returns lowercase from eth_accounts; the Zama relayer
+      // SDK rejects non-checksummed user addresses with "User address
+      // is not a valid address." Normalize both addresses to EIP-55
+      // before passing them in.
+      const checksumMarket = ethers.getAddress(marketAddr);
+      const checksumUser = ethers.getAddress(account);
+
       append('info', 'loading Zama relayer SDK (WASM)…');
       const fhevm = await getInstance(window.ethereum!);
       append('info', 'encrypting both halves client-side…');
-      const input = fhevm.createEncryptedInput(marketAddr, account);
+      const input = fhevm.createEncryptedInput(checksumMarket, checksumUser);
       input.add128(hi);
       input.add128(lo);
       const enc = await input.encrypt();
