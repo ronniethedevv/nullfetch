@@ -88,6 +88,35 @@ for the full surface.
 
 ---
 
+## Independent integration tests
+
+To validate that NullFetch's architecture works for third parties — not
+just this repo's code — I built two real services against it in
+separate Claude Code sessions, each with no access to NullFetch's
+source:
+
+- **[quote-api](https://github.com/ronniethedevv/quote-api)** — a
+  provider. Returns a quote from a static list on each call, gated by
+  on-chain attestation. Independent codebase, independent deployment,
+  written from scratch against the integration spec (contract ABI +
+  auth flow). Live at
+  [quote-api-d9wc.onrender.com](https://quote-api-d9wc.onrender.com).
+
+- **[quote-fetcher](https://github.com/ronniethedevv/quote-fetcher)** —
+  a consumer. CLI + browser frontend that calls the quote API on a
+  polling interval, signing a fresh SIWE challenge per fetch. Built in
+  a separate session against the quote API's public HTTP contract
+  only.
+
+**Neither repository contains an API key.** The provider doesn't store
+one — it reads attestations from the marketplace contract. The
+consumer doesn't carry one — possession is proven on-chain ahead of
+time. If either repo leaks tomorrow, there's nothing to leak. That's
+the architectural claim, demonstrated end-to-end on infrastructure
+this repository does not control.
+
+---
+
 ## Demo in 90 seconds
 
 After cloning + `npm install` in the root, `api/`, and `web/`:
