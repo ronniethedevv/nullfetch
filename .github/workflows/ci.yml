@@ -55,6 +55,16 @@ jobs:
           cache: 'npm'
           cache-dependency-path: api/package-lock.json
 
+      # api/ depends on @nullfetch/express-gate via `file:../packages/...`,
+      # and that package's `dist/` (the entry point per its package.json)
+      # is gitignored. Build it from source before installing api/ so the
+      # api typecheck can resolve the module.
+      - name: install + build @nullfetch/express-gate
+        working-directory: packages/nullfetch-express-gate
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+
       - name: install api deps
         working-directory: api
         run: npm ci --no-audit --no-fund
