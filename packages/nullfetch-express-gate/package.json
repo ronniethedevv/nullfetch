@@ -1,0 +1,39 @@
+{
+  "name": "@nullfetch/express-gate",
+  "version": "0.1.0",
+  "description": "Express middleware that gates API routes on NullFetch on-chain attestations. Replaces ~150 lines of hand-written SIWE + fhEVM auth with two lines of config.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p .",
+    "typecheck": "tsc -p . --noEmit",
+    "clean": "rimraf dist"
+  },
+  "keywords": [
+    "nullfetch",
+    "fhevm",
+    "zama",
+    "express",
+    "middleware",
+    "siwe",
+    "auth"
+  ],
+  "license": "MIT",
+  "private": true,
+  "peerDependencies": {
+    "express": "^4.0.0 || ^5.0.0"
+  },
+  "dependencies": {
+    "ethers": "^6.16.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.11.0",
+    "express": "^4.19.2",
+    "typescript": "^5.4.5"
+  }
+}

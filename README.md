@@ -68,8 +68,23 @@ Then, whenever the developer wants to use the service:
 ```
 
 Each provider runs an API server. The server reads on-chain attestations
-and has no key database. Auth is the same ~60 lines of TypeScript
-regardless of which provider deploys it.
+and has no key database. Auth is **two lines of code** when integrated
+via the `@nullfetch/express-gate` SDK shipped in this repo (see
+[`packages/nullfetch-express-gate/`](packages/nullfetch-express-gate/)):
+
+```ts
+const nf = createGate({ serviceId: 3 });
+app.get('/api/service/:id', nf.gate, (req, res) => {
+  res.json({ /* your business logic */ });
+});
+```
+
+The SDK handles SIWE challenge issuance, signature verification, the
+on-chain attestation lookup, service-id matching, structured error
+responses, soft bootstrap (server stays up even when Sepolia is
+degraded), pluggable challenge stores for horizontal scaling, and dev
+mode. See the [package README](packages/nullfetch-express-gate/README.md)
+for the full surface.
 
 ---
 

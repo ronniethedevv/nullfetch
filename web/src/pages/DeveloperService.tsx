@@ -73,7 +73,10 @@ export function DeveloperService() {
   const [unlocking, setUnlocking] = useState(false);
   const [verifyState, setVerifyState] = useState<VerifyState>('idle');
   const [attestState, setAttestState] = useState<VerifyState>('idle');
-  const [apiBase, setApiBase] = useState('http://localhost:3000');
+  // Defaults to the deployed Render API for the live site. Editable in
+  // the UI for local development (point at http://localhost:3000) or
+  // for testing other deployments.
+  const [apiBase, setApiBase] = useState('https://nullfetch-api.onrender.com');
   const [apiResponse, setApiResponse] = useState<ApiResponse | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [log, setLog] = useState<LogEntry[]>([]);

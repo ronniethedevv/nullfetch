@@ -9,6 +9,7 @@
     "typecheck": "tsc -p . --noEmit"
   },
   "dependencies": {
+    "@nullfetch/express-gate": "file:../packages/nullfetch-express-gate",
     "dotenv": "^16.4.5",
     "ethers": "^6.16.0",
     "express": "^4.19.2"
