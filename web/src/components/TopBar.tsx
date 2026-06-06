@@ -21,6 +21,9 @@ export function TopBar() {
         <NavLink to="/browse" className="navlink">
           browse
         </NavLink>
+        <NavLink to="/docs" className="navlink">
+          docs
+        </NavLink>
         <NavLink to="/provider" className="navlink">
           provider
         </NavLink>
