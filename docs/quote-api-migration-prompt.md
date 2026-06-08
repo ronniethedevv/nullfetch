@@ -17,7 +17,7 @@ hand-written 156-line auth layer to the SDK.
 >    registry, install from the path / git ref:
 >
 >    ```sh
->    npm install github:ronniethedevv/private-api-market#path:/packages/nullfetch-express-gate
+>    npm install github:ronniethedevv/nullfetch#path:/packages/nullfetch-express-gate
 >    ```
 >
 >    If that doesn't resolve cleanly, fall back to:

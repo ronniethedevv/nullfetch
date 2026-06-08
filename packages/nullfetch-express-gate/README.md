@@ -1,7 +1,7 @@
 # @nullfetch/express-gate
 
 Express middleware that gates API routes on
-[NullFetch](https://github.com/ronniethedevv/private-api-market) on-chain
+[NullFetch](https://github.com/ronniethedevv/nullfetch) on-chain
 attestations.
 
 Replaces ~150 lines of hand-written SIWE + fhEVM auth code with two
@@ -21,7 +21,7 @@ from a path or git ref:
 ```sh
 npm install file:../path/to/packages/nullfetch-express-gate
 # or
-npm install github:ronniethedevv/private-api-market#path:/packages/nullfetch-express-gate
+npm install github:ronniethedevv/nullfetch#path:/packages/nullfetch-express-gate
 ```
 
 ---

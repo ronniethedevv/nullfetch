@@ -41,7 +41,7 @@ export function Footer() {
         <span className="footer__built-label mono">source</span>
         <a
           className="footer__built-link mono"
-          href="https://github.com/ronniethedevv/private-api-market"
+          href="https://github.com/ronniethedevv/nullfetch"
           target="_blank"
           rel="noopener noreferrer"
         >

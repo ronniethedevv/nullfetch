@@ -574,11 +574,11 @@ curl http://localhost:3000/quote \\
           <li>
             <b>Source &amp; issues:</b>{' '}
             <a
-              href="https://github.com/ronniethedevv/private-api-market"
+              href="https://github.com/ronniethedevv/nullfetch"
               target="_blank"
               rel="noopener noreferrer"
             >
-              github.com/ronniethedevv/private-api-market
+              github.com/ronniethedevv/nullfetch
             </a>
           </li>
           <li>
