@@ -47,6 +47,16 @@ export function Footer() {
         >
           github ↗
         </a>
+        <span className="footer__built-sep mono">·</span>
+        <span className="footer__built-label mono">contract</span>
+        <a
+          className="footer__built-link mono"
+          href="https://sepolia.etherscan.io/address/0x77CD4B9b78946A20407fa1C1C8B3298401D93875#code"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          etherscan ↗
+        </a>
       </div>
     </footer>
   );

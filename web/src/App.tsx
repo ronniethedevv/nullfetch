@@ -11,7 +11,9 @@ import { ProviderService } from './pages/ProviderService';
 import { Developer } from './pages/Developer';
 import { DeveloperRegister } from './pages/DeveloperRegister';
 import { DeveloperService } from './pages/DeveloperService';
-import { Docs } from './pages/Docs';
+import { DocsLanding } from './pages/DocsLanding';
+import { DocsProviders } from './pages/DocsProviders';
+import { DocsDevelopers } from './pages/DocsDevelopers';
 
 /**
  * Layout shared by every route — top bar, page outlet, footer. The
@@ -38,7 +40,9 @@ export default function App() {
             <Route path="/" element={<Landing />} />
             <Route path="/browse" element={<Browse />} />
             <Route path="/service/:id" element={<ServiceDetail />} />
-            <Route path="/docs" element={<Docs />} />
+            <Route path="/docs" element={<DocsLanding />} />
+            <Route path="/docs/providers" element={<DocsProviders />} />
+            <Route path="/docs/developers" element={<DocsDevelopers />} />
             <Route path="/provider" element={<Provider />} />
             <Route path="/provider/new" element={<ProviderNew />} />
             <Route path="/provider/service/:id" element={<ProviderService />} />
