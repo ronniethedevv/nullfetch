@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom';
+import { CopyMarkdownButton } from '../components/CopyMarkdownButton';
+import developersMd from './docs-developers.md?raw';
 
 /**
  * Developer-side docs. Walks a consumer through getting set up
@@ -12,9 +14,12 @@ import { Link } from 'react-router-dom';
 export function DocsDevelopers() {
   return (
     <section className="page docs">
-      <Link to="/docs" className="back-link mono">
-        ← all docs
-      </Link>
+      <div className="docs__top-actions">
+        <Link to="/docs" className="back-link mono">
+          ← all docs
+        </Link>
+        <CopyMarkdownButton markdown={developersMd} />
+      </div>
 
       <header className="page__head">
         <div className="page__eyebrow mono">// developer docs · consumer guide</div>

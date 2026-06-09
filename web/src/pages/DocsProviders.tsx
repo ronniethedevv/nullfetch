@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom';
+import { CopyMarkdownButton } from '../components/CopyMarkdownButton';
+import providersMd from './docs-providers.md?raw';
 
 /**
  * Provider integration docs. Long-form scannable single-page reference
@@ -13,9 +15,12 @@ import { Link } from 'react-router-dom';
 export function DocsProviders() {
   return (
     <section className="page docs">
-      <Link to="/docs" className="back-link mono">
-        ← all docs
-      </Link>
+      <div className="docs__top-actions">
+        <Link to="/docs" className="back-link mono">
+          ← all docs
+        </Link>
+        <CopyMarkdownButton markdown={providersMd} />
+      </div>
 
       <header className="page__head">
         <div className="page__eyebrow mono">// provider docs · integration guide</div>
