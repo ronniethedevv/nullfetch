@@ -132,6 +132,18 @@ Once you have a fresh attestation, each API call is a three-step
 dance: fetch a challenge, sign it, send the headers. No gas, no
 contract interaction.
 
+> **Two things to know before you copy this code:**
+>
+> 1. Your wallet must be on **Sepolia** (chainId `11155111`). The
+>    marketplace contract lives at `0x77CD…3875` on Sepolia only —
+>    sign on the wrong chain and the attestation lookup hits a
+>    contract that doesn't exist.
+> 2. Sign the `message` field returned by `/challenge` **verbatim**.
+>    Don't rebuild it from the `nonce` and `expiresAt` fields. The
+>    server string-compares against the exact message it generated,
+>    so any whitespace difference or line reordering breaks the
+>    signature recovery.
+
 ```ts
 import { BrowserProvider, getAddress } from 'ethers';
 
@@ -152,7 +164,7 @@ async function call() {
   });
   const { nonce, message } = await cr.json();
 
-  // 2. sign the message with personal_sign (no tx, no gas)
+  // 2. sign the returned 'message' VERBATIM — don't rebuild it
   const signature = await signer.signMessage(message);
 
   // 3. call the gated endpoint
@@ -164,13 +176,61 @@ async function call() {
     },
   });
 
-  return r.json();
+  // 4. ALWAYS check r.ok — a 401 body is valid JSON with the same
+  //    Content-Type as success. Don't let it slip through silently.
+  const body = await r.json();
+  if (!r.ok) {
+    throw new Error(`${body.error}: ${body.detail}`);
+  }
+  return body;
 }
 ```
 
 The challenge is single-use and expires after 2 minutes. You fetch a
-fresh one for every call. The signature happens locally in MetaMask in
-well under a second.
+fresh one for every call. MetaMask shows a signature popup each time
+— there's no auto-approve setting for `personal_sign`; expect one
+click per call.
+
+### What you'll get back
+
+The gate just authenticates; it doesn't reshape the response. The
+shape is whatever the provider returns.
+
+The reference NullFetch demo API and the example
+[quote-api](https://github.com/ronniethedevv/quote-api) provider both
+wrap their payloads as:
+
+```json
+{
+  "authenticated": true,
+  "wallet": "0x...",
+  "service": { "id": "3", "name": "..." },
+  "response": { "...the provider's actual data..." },
+  "attestationExpiresInSeconds": 3580
+}
+```
+
+That's a convention the SDK encourages but does not enforce —
+providers can return any shape they want. Check the provider's own
+docs for what their endpoint returns. If they follow the convention,
+your data lives at `body.response`; if they don't, it's at the root.
+
+### Handle errors
+
+A 401 body has the same JSON shape and Content-Type as a 200 body —
+`await r.json()` happily returns it as structured data. Don't trust
+it without checking `r.ok`:
+
+```ts
+const body = await r.json();
+if (!r.ok) {
+  throw new Error(`${body.error}: ${body.detail}`);
+}
+return body;
+```
+
+See [§10](#10--error-codes-you-might-see) for every error code, what
+causes it, and how to recover.
 
 > The exact endpoint path (`/api/service/:id`) is a convention the
 > NullFetch reference uses, but providers can mount their gated
@@ -184,6 +244,7 @@ For server-side or CI use, swap `BrowserProvider` for an `ethers.Wallet`
 with a private key:
 
 ```ts
+import 'dotenv/config';
 import { Wallet } from 'ethers';
 
 const wallet = new Wallet(process.env.SEPOLIA_PRIVATE_KEY);
@@ -194,6 +255,7 @@ const cr = await fetch(`${API}/challenge?wallet=${wallet.address}`, {
 });
 const { nonce, message } = await cr.json();
 
+// sign the 'message' verbatim — same warning as §05
 const signature = await wallet.signMessage(message);
 
 const r = await fetch(`${API}/api/service/${SERVICE_ID}`, {
@@ -203,6 +265,10 @@ const r = await fetch(`${API}/api/service/${SERVICE_ID}`, {
     'X-Wallet-Signature': signature,
   },
 });
+
+const body = await r.json();
+if (!r.ok) throw new Error(`${body.error}: ${body.detail}`);
+return body;
 ```
 
 The wallet that signs here must be the same one that registered for the
@@ -304,11 +370,13 @@ to stop using a service, just stop calling it. The fee is non-refundable.
 | 401 | `no_challenge` | Skipped `POST /challenge`. Fetch one first. |
 | 401 | `nonce_mismatch` | You sent the wrong nonce. Re-fetch a challenge. |
 | 401 | `challenge_expired` | 2-minute TTL elapsed. Re-fetch. |
-| 401 | `signature_mismatch` | You signed with a different wallet than the one in the header — or the header isn't EIP-55 checksummed. |
+| 401 | `signature_malformed` | Your signature isn't valid ECDSA hex. Probably mangled in transit, or you reconstructed it instead of using `signer.signMessage()`. Re-sign the unmodified `message` field. |
+| 401 | `signature_mismatch` | You signed with a different wallet than the one in the header, the header isn't EIP-55 checksummed, or — most commonly — you rebuilt the message instead of signing the exact `message` string returned by `/challenge`. |
 | 401 | `no_fresh_attestation` | Your attestation expired or doesn't exist. Run a new `verifyAndAttest` at `/developer/service/N`. |
 | 401 | `attestation_invalid` | You attested but with the wrong key. Either you typed the key wrong or your provider's stored ciphertext is for a different subscription. |
 | 401 | `service_mismatch` | Your latest attestation is for a different service. Go back to `/developer/service/N` for *this* service and attest there. |
 | 502 | `gate_not_ready` | Provider's server hasn't completed bootstrap (usually transient). Retry in 10-30 seconds. |
+| 502 | `contract_read_failed` | Provider's Sepolia RPC is degraded. Retry with exponential backoff; usually transient (Infura/Alchemy hiccup). |
 
 ---
 
@@ -357,10 +425,19 @@ Yes. Each (wallet, service) pair has its own subscription with its own
 key. One wallet can hold many subscriptions.
 
 **Can I share a subscription across multiple machines?**
-Yes, if you copy the plaintext key to each machine and use the same
-wallet for signing. The local key store on the new machine will be
-empty — paste the key in manually on the use page, then save it
-locally.
+Yes. The plaintext API key is the random 32 bytes your browser
+generated at registration — there's nothing wallet-derived about it.
+Copy that hex string (from your one-time reveal or your backup) to
+the new machine, use the same wallet for signing, and you're in. The
+local key store on the new machine will be empty — paste the key in
+manually on the use page, then save it locally if you want auto-fill.
+
+Important distinction: the wallet signature *encrypts your
+localStorage entry*; it does NOT generate the key itself. If your
+wallet signature could regenerate your API key, anyone with your
+wallet could too — and the whole privacy story would collapse. The
+32 random bytes are the actual secret. The wallet just controls who
+can read the encrypted local copy on a given device.
 
 **What if I lose access to my wallet?**
 You lose the subscription. The wallet IS the identity; no wallet, no

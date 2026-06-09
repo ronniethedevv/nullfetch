@@ -255,6 +255,22 @@ export function DocsDevelopers() {
           three-step dance: fetch a challenge, sign it, send the
           headers. No gas, no contract interaction.
         </p>
+
+        <p className="docs__note mono">
+          // Two things to know before you copy this code:<br />
+          // 1. Your wallet must be on Sepolia (chainId{' '}
+          <code>11155111</code>). The marketplace contract is at{' '}
+          <code>0x77CD…3875</code> on Sepolia only — sign on the wrong
+          chain and the attestation lookup hits a contract that doesn&rsquo;t
+          exist.<br />
+          // 2. Sign the <code>message</code> field returned by{' '}
+          <code>/challenge</code> <b>verbatim</b>. Don&rsquo;t rebuild it
+          from <code>nonce</code> + <code>expiresAt</code>; the server
+          string-compares against the exact message it generated, so
+          any whitespace difference or line reordering breaks the
+          signature recovery.
+        </p>
+
         <pre className="docs__code mono">{`import { BrowserProvider, getAddress } from 'ethers';
 
 // the provider's deployed API base
@@ -274,7 +290,7 @@ async function call() {
   });
   const { nonce, message } = await cr.json();
 
-  // 2. sign the message with personal_sign (no tx, no gas)
+  // 2. sign the returned 'message' VERBATIM — don't rebuild it
   const signature = await signer.signMessage(message);
 
   // 3. call the gated endpoint
@@ -286,16 +302,69 @@ async function call() {
     },
   });
 
-  return r.json();
+  // 4. ALWAYS check r.ok — a 401 body is valid JSON with the same
+  //    Content-Type as success. Don't let it slip through silently.
+  const body = await r.json();
+  if (!r.ok) {
+    throw new Error(\`\${body.error}: \${body.detail}\`);
+  }
+  return body;
 }`}</pre>
         <p>
           The challenge is single-use and expires after 2 minutes. You
-          fetch a fresh one for every call. The signature happens
-          locally in MetaMask in well under a second — no popup
-          required for <code>personal_sign</code> if MetaMask is
-          configured to auto-approve same-origin signatures (most users
-          do).
+          fetch a fresh one for every call. MetaMask shows a signature
+          popup each time — there&rsquo;s no auto-approve setting for{' '}
+          <code>personal_sign</code>; expect one click per call.
         </p>
+
+        <h3 className="docs__h3">What you&rsquo;ll get back</h3>
+        <p>
+          The gate just authenticates; it doesn&rsquo;t reshape the
+          response. The shape is whatever the provider returns.
+        </p>
+        <p>
+          The reference NullFetch demo API and the example{' '}
+          <a
+            href="https://github.com/ronniethedevv/quote-api"
+            target="_blank" rel="noopener noreferrer"
+          >
+            quote-api
+          </a>{' '}
+          provider both wrap their payloads as:
+        </p>
+        <pre className="docs__code mono">{`{
+  "authenticated": true,
+  "wallet": "0x...",
+  "service": { "id": "3", "name": "..." },
+  "response": { /* the provider's actual data */ },
+  "attestationExpiresInSeconds": 3580
+}`}</pre>
+        <p>
+          That&rsquo;s a convention the SDK encourages but does not
+          enforce — providers can return any shape they want. Check the
+          provider&rsquo;s own docs for what their endpoint returns. If
+          they follow the convention, your data lives at{' '}
+          <code>body.response</code>; if they don&rsquo;t, it&rsquo;s at
+          the root.
+        </p>
+
+        <h3 className="docs__h3">Handle errors</h3>
+        <p>
+          A 401 body has the same JSON shape and Content-Type as a 200
+          body — <code>await r.json()</code> happily returns it as
+          structured data. Don&rsquo;t trust it without checking{' '}
+          <code>r.ok</code>:
+        </p>
+        <pre className="docs__code mono">{`const body = await r.json();
+if (!r.ok) {
+  throw new Error(\`\${body.error}: \${body.detail}\`);
+}
+return body;`}</pre>
+        <p>
+          See <a href="#errors">§10</a> for every error code, what
+          causes it, and how to recover.
+        </p>
+
         <p className="docs__note mono">
           // The exact endpoint path (<code>/api/service/:id</code>) is
           a convention the NullFetch reference uses, but providers can
@@ -311,7 +380,8 @@ async function call() {
           For server-side or CI use, swap <code>BrowserProvider</code>{' '}
           for an <code>ethers.Wallet</code> with a private key:
         </p>
-        <pre className="docs__code mono">{`import { Wallet } from 'ethers';
+        <pre className="docs__code mono">{`import 'dotenv/config';
+import { Wallet } from 'ethers';
 
 const wallet = new Wallet(process.env.SEPOLIA_PRIVATE_KEY);
 // wallet.address is already EIP-55 checksummed
@@ -321,6 +391,7 @@ const cr = await fetch(\`\${API}/challenge?wallet=\${wallet.address}\`, {
 });
 const { nonce, message } = await cr.json();
 
+// sign the 'message' verbatim — same warning as §05
 const signature = await wallet.signMessage(message);
 
 const r = await fetch(\`\${API}/api/service/\${SERVICE_ID}\`, {
@@ -329,7 +400,11 @@ const r = await fetch(\`\${API}/api/service/\${SERVICE_ID}\`, {
     'X-Auth-Nonce': nonce,
     'X-Wallet-Signature': signature,
   },
-});`}</pre>
+});
+
+const body = await r.json();
+if (!r.ok) throw new Error(\`\${body.error}: \${body.detail}\`);
+return body;`}</pre>
         <p>
           The wallet that signs here must be the same one that
           registered for the service and ran the attestation. If
@@ -487,10 +562,24 @@ const r = await fetch(\`\${API}/api/service/\${SERVICE_ID}\`, {
               </tr>
               <tr>
                 <td>401</td>
+                <td>signature_malformed</td>
+                <td>
+                  Your signature isn&rsquo;t valid ECDSA hex. Probably
+                  mangled in transit, or you reconstructed it instead
+                  of using <code>signer.signMessage()</code>. Re-sign
+                  the unmodified <code>message</code> field.
+                </td>
+              </tr>
+              <tr>
+                <td>401</td>
                 <td>signature_mismatch</td>
                 <td>
-                  You signed with a different wallet than the one in the
-                  header — or the header isn&rsquo;t EIP-55 checksummed.
+                  You signed with a different wallet than the one in
+                  the header, the header isn&rsquo;t EIP-55
+                  checksummed, or — most commonly — you rebuilt the
+                  message instead of signing the exact{' '}
+                  <code>message</code> string returned by{' '}
+                  <code>/challenge</code>.
                 </td>
               </tr>
               <tr>
@@ -526,6 +615,15 @@ const r = await fetch(\`\${API}/api/service/\${SERVICE_ID}\`, {
                 <td>
                   Provider&rsquo;s server hasn&rsquo;t completed
                   bootstrap (usually transient). Retry in 10-30 seconds.
+                </td>
+              </tr>
+              <tr>
+                <td>502</td>
+                <td>contract_read_failed</td>
+                <td>
+                  Provider&rsquo;s Sepolia RPC is degraded. Retry with
+                  exponential backoff; usually transient (Infura/Alchemy
+                  hiccup).
                 </td>
               </tr>
             </tbody>
@@ -622,10 +720,23 @@ const r = await fetch(\`\${API}/api/service/\${SERVICE_ID}\`, {
 
         <h3 className="docs__h3">Can I share a subscription across multiple machines?</h3>
         <p>
-          Yes, if you copy the plaintext key to each machine and use
-          the same wallet for signing. The local key store on the new
-          machine will be empty — paste the key in manually on the use
-          page, then save it locally.
+          Yes. The plaintext API key is the random 32 bytes your
+          browser generated at registration — there&rsquo;s nothing
+          wallet-derived about it. Copy that hex string (from your
+          one-time reveal or your backup) to the new machine, use the
+          same wallet for signing, and you&rsquo;re in. The local key
+          store on the new machine will be empty — paste the key in
+          manually on the use page, then save it locally if you want
+          auto-fill.
+        </p>
+        <p>
+          Important distinction: the wallet signature{' '}
+          <i>encrypts your localStorage entry</i>; it does NOT generate
+          the key itself. If your wallet signature could regenerate
+          your API key, anyone with your wallet could too — and the
+          whole privacy story would collapse. The 32 random bytes are
+          the actual secret. The wallet just controls who can read the
+          encrypted local copy on a given device.
         </p>
 
         <h3 className="docs__h3">What if I lose access to my wallet?</h3>
